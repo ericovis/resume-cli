@@ -14,10 +14,9 @@ var json bool = false
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use:              "init",
-	Short:            "Creates a resume data file on the current (or specified) directory.",
-	Long:             `Creates a resume data file on the current (or specified) directory.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {},
+	Use:   "init",
+	Short: "Creates a resume data file on the current (or specified) directory.",
+	Long:  `Creates a resume data file on the current (or specified) directory.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		resume.Init(output, json)
 	},

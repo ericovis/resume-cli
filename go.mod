@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/spf13/cobra v1.7.0
-	golang.org/x/text v0.11.0
 	gopkg.in/yaml.v2 v2.2.2
 )
 

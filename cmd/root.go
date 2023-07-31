@@ -5,40 +5,84 @@ package cmd
 
 import (
 	"fmt"
+	"html/template"
+	"io/fs"
+	"log"
+	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 
 	r "github.com/ericovis/resume-cli/src/resume"
+	"github.com/ericovis/resume-cli/src/server"
 	"github.com/spf13/cobra"
 )
 
 var resumeFile string
 var resume r.Resume
+var port int = 8080
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "resume-cli",
 	Short: "A CLI tool for building a resumés from JSON and YAML files.",
 	Long: `A CLI tool for building a resumés from JSON and YAML files.
-	Based on the JSON Resume Schema (https://jsonresume.org/schema/)`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		var err error
-
-		if resumeFile == "" {
-			cwd, _ := os.Getwd()
-			resumeFile, err = r.FindResumeFileOnDir(cwd)
-
-			ExitOnError(err)
-		}
-
-		err = resume.Load(resumeFile)
-		ExitOnError(err)
-	},
+Based on the JSON Resume Schema (https://jsonresume.org/schema/)
+	`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		loadResume()
+
+		fSys, _ := fs.Sub(server.Static, "static")
+		http.Handle("/static/", http.FileServer(http.FS(fSys)))
+
+		tmpl := template.Must(template.ParseFS(server.Templates, "templates/index.html"))
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			tmpl.Execute(w, resume)
+		})
+
+		fmt.Printf("Listening on port %v\n", port)
+		openBrowser(fmt.Sprintf("http://localhost:%v", port))
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
+	},
 }
 
-func ExitOnError(err error) {
+func openBrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func loadResume() {
+	var err error
+
+	if resumeFile == "" {
+		cwd, _ := os.Getwd()
+
+		resumeFile, err = r.FindResumeFileOnDir(cwd)
+
+		exitOnError(err)
+	}
+
+	err = resume.Load(resumeFile)
+	exitOnError(err)
+}
+
+func exitOnError(err error) {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -49,7 +93,7 @@ func ExitOnError(err error) {
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
-	ExitOnError(err)
+	exitOnError(err)
 }
 
 func init() {
@@ -58,6 +102,7 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVarP(&resumeFile, "file", "f", "", "path for the resume file")
+	rootCmd.Flags().IntVarP(&port, "port", "p", port, "port for the web server")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
