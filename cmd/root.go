@@ -5,13 +5,7 @@ package cmd
 
 import (
 	"fmt"
-	"html/template"
-	"io/fs"
-	"log"
-	"net/http"
 	"os"
-	"os/exec"
-	"runtime"
 
 	r "github.com/ericovis/resume-cli/src/resume"
 	"github.com/ericovis/resume-cli/src/server"
@@ -33,38 +27,8 @@ Based on the JSON Resume Schema (https://jsonresume.org/schema/)
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		loadResume()
-
-		fSys, _ := fs.Sub(server.Static, "static")
-		http.Handle("/static/", http.FileServer(http.FS(fSys)))
-
-		tmpl := template.Must(template.ParseFS(server.Templates, "templates/index.html"))
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			tmpl.Execute(w, resume)
-		})
-
-		fmt.Printf("Listening on port %v\n", port)
-		openBrowser(fmt.Sprintf("http://localhost:%v", port))
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", port), nil))
+		server.Start(resume, port)
 	},
-}
-
-func openBrowser(url string) {
-	var err error
-
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
-
 }
 
 func loadResume() {
